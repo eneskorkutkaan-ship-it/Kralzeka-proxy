@@ -4,9 +4,12 @@ import os
 
 app = Flask(__name__)
 
+HF_API_KEY = os.getenv("HF_API_KEY")
+HF_MODEL = "mistralai/Mixtral-8x7B-Instruct-v0.1"  # Ücretsiz, güçlü model
+
 @app.route("/")
 def home():
-    return "KralZeka Ücretsiz Proxy Aktif 🧠🔥"
+    return "🔥 KralZeka HuggingFace Proxy Aktif 🔥"
 
 @app.route("/ask", methods=["POST"])
 def ask():
@@ -16,14 +19,21 @@ def ask():
     if not user_input:
         return jsonify({"error": "Prompt eksik!"}), 400
 
-    # Hugging Face ücretsiz model API'si
-    model_url = "https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill"
-    
-    headers = {"Authorization": f"Bearer {os.getenv('HF_API_KEY')}"}
+    headers = {
+        "Authorization": f"Bearer {HF_API_KEY}",
+        "Content-Type": "application/json"
+    }
 
-    body = {"inputs": user_input}
+    payload = {
+        "inputs": user_input,
+        "parameters": {"max_new_tokens": 200}
+    }
 
-    response = requests.post(model_url, headers=headers, json=body)
+    response = requests.post(
+        f"https://api-inference.huggingface.co/models/{HF_MODEL}",
+        headers=headers,
+        json=payload
+    )
 
     if response.status_code != 200:
         return jsonify({
@@ -31,13 +41,13 @@ def ask():
             "details": response.text
         }), 500
 
+    result = response.json()
     try:
-        answer = response.json()[0]["generated_text"]
+        reply = result[0]["generated_text"]
     except Exception:
-        answer = "Modelden yanıt alınamadı."
+        reply = str(result)
 
-    return jsonify({"reply": answer})
-
+    return jsonify({"reply": reply})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))

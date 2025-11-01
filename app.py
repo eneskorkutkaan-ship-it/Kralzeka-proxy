@@ -5,7 +5,7 @@ import os
 app = Flask(__name__)
 
 # Hugging Face Token (buraya senin tokenin gelecek)
-HF_TOKEN = "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"
+HF_TOKEN = "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"
 
 # Kullanmak istediğin model
 MODEL = "mistralai/Mistral-7B-Instruct-v0.2"

@@ -4,11 +4,13 @@ import os
 
 app = Flask(__name__)
 
-# Açık, herkese açık çalışan model (senin seçtiğin: Mistral)
-MODEL_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
+# 🔹 Açık ve ücretsiz bir model kullanıyoruz (TinyLlama)
+MODEL_URL = "https://api-inference.huggingface.co/models/TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 
-# Eğer token eklersen Render'da HUGGINGFACE_TOKEN olarak ekle (opsiyonel)
-HF_TOKEN = os.environ.get("HUGGINGFACE_TOKEN")
+# 🔹 Hugging Face Token (isteğe bağlı — eğer özel model kullanırsan gerekli)
+HF_TOKEN = os.environ.get("HF_TOKEN")
+
+HEADERS = {"Authorization": f"Bearer {HF_TOKEN}"} if HF_TOKEN else {}
 
 @app.route("/")
 def home():
@@ -16,35 +18,38 @@ def home():
 
 @app.route("/api", methods=["POST"])
 def api():
-    data = request.get_json(force=True, silent=True) or {}
-    user_input = data.get("input") or data.get("prompt") or ""
-    if not user_input:
-        return jsonify({"error": "Girdi (input) boş olamaz."}), 400
+    try:
+        data = request.get_json(force=True, silent=True) or {}
+        prompt = data.get("prompt", "")
 
-    payload = {"inputs": user_input}
-    headers = {"Content-Type": "application/json"}
-    if HF_TOKEN:
-        headers["Authorization"] = f"Bearer {HF_TOKEN}"
+        if not prompt:
+            return jsonify({"error": "Bir prompt girmen gerekiyor."}), 400
 
-    resp = requests.post(MODEL_URL, json=payload, headers=headers, timeout=120)
+        payload = {"inputs": prompt}
+        response = requests.post(MODEL_URL, headers=HEADERS, json=payload)
 
-    if resp.status_code != 200:
-        return jsonify({
-            "error": "Model isteği başarısız.",
-            "status": resp.status_code,
-            "details": resp.text
-        }), resp.status_code
+        if response.status_code != 200:
+            return jsonify({
+                "error": "Model isteği başarısız.",
+                "details": response.text,
+                "status": response.status_code
+            }), response.status_code
 
-    out = resp.json()
-    text = ""
-    if isinstance(out, list) and len(out) > 0:
-        # Genel HF response formatlarını güvenli çek
-        text = out[0].get("generated_text") or out[0].get("text") or str(out[0])
-    else:
-        text = str(out)
+        result = response.json()
 
-    return jsonify({"response": text})
+        # Hugging Face formatına göre metni ayıklama
+        if isinstance(result, list) and len(result) > 0:
+            output = result[0].get("generated_text", "")
+        elif isinstance(result, dict) and "generated_text" in result:
+            output = result["generated_text"]
+        else:
+            output = result
+
+        return jsonify({"response": output})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
+    port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)

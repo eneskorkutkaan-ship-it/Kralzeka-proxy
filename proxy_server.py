@@ -4,36 +4,43 @@ import os
 
 app = Flask(__name__)
 
-# OpenAI veya başka bir API'ye proxy yönlendirme örneği
-# Buraya kendi API anahtarını eklersen çalışır
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "YOUR_API_KEY_HERE")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-@app.route('/')
+@app.route("/")
 def home():
-    return "✅ KralZeka Proxy çalışıyor!"
+    return "Kralzeka Proxy Aktif 🔥"
 
-# Chat proxy endpointi
-@app.route('/v1/chat/completions', methods=['POST'])
-def chat_proxy():
-    try:
-        headers = {
-            "Authorization": f"Bearer {OPENAI_API_KEY}",
-            "Content-Type": "application/json"
-        }
-        data = request.get_json()
+@app.route("/ask", methods=["POST"])
+def ask():
+    data = request.get_json()
+    user_input = data.get("prompt")
 
-        # Orijinal OpenAI endpointine yönlendir
-        response = requests.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers=headers,
-            json=data
-        )
+    if not user_input:
+        return jsonify({"error": "Prompt eksik!"}), 400
 
-        return (response.text, response.status_code, response.headers.items())
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    headers = {
+        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    body = {
+        "model": "gpt-3.5-turbo",
+        "messages": [{"role": "user", "content": user_input}]
+    }
+
+    response = requests.post(
+        "https://api.openai.com/v1/chat/completions",
+        headers=headers,
+        json=body
+    )
+
+    if response.status_code != 200:
+        return jsonify({"error": "OpenAI isteği başarısız!", "details": response.text}), 500
+
+    answer = response.json()["choices"][0]["message"]["content"]
+    return jsonify({"reply": answer})
 
 
-if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 10000))  # Render için gerekli
-    app.run(host='0.0.0.0', port=port)
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)

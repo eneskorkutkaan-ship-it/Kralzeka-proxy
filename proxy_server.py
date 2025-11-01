@@ -11,9 +11,8 @@ def chat_completions():
     try:
         data = request.get_json()
         user_message = data["messages"][0]["content"]
-        print("Kullanıcı:", user_message)
 
-        # Burada örnek bir yanıt oluşturuyoruz
+        # Basit bir cevap örneği:
         response_text = f"KralZeka çevrimiçi! Mesajını aldım: {user_message}"
 
         return jsonify({

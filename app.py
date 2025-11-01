@@ -3,47 +3,39 @@ import requests
 
 app = Flask(__name__)
 
-# Herkese açık çalışan model (Gemma 2B)
+# Tokensiz model (Gemma 2B)
 MODEL_URL = "https://api-inference.huggingface.co/models/google/gemma-2b-it"
 
 @app.route("/")
 def home():
-    return "🤖 KralZeka Gemma Proxy Aktif ve Tokensiz Çalışıyor!"
+    return "✅ KralZeka Tokensiz Gemma Proxy Aktif!"
 
 @app.route("/api", methods=["POST"])
 def api():
     data = request.get_json(force=True, silent=True) or {}
-    user_input = data.get("prompt")
+    prompt = data.get("prompt", "")
 
-    if not user_input:
-        return jsonify({"error": "Lütfen bir prompt gönderin!"}), 400
+    if not prompt:
+        return jsonify({"error": "Lütfen prompt girin."}), 400
 
-    body = {
-        "inputs": user_input,
-        "parameters": {"max_new_tokens": 256}
-    }
+    # Hugging Face'e istek at
+    body = {"inputs": prompt, "parameters": {"max_new_tokens": 100}}
+    response = requests.post(MODEL_URL, json=body)
 
-    try:
-        response = requests.post(MODEL_URL, json=body)
-        if response.status_code != 200:
-            return jsonify({
-                "error": "Model isteği başarısız.",
-                "details": response.text,
-                "status": response.status_code
-            }), response.status_code
+    if response.status_code != 200:
+        return jsonify({
+            "error": "Model isteği başarısız.",
+            "status": response.status_code,
+            "details": response.text
+        }), response.status_code
 
-        result = response.json()
-        # Yanıt metnini çek
-        if isinstance(result, list) and len(result) > 0 and "generated_text" in result[0]:
-            reply = result[0]["generated_text"]
-        else:
-            reply = str(result)
+    result = response.json()
+    if isinstance(result, list) and "generated_text" in result[0]:
+        reply = result[0]["generated_text"]
+    else:
+        reply = str(result)
 
-        return jsonify({"reply": reply})
-
-    except Exception as e:
-        return jsonify({"error": f"Sunucu hatası: {str(e)}"}), 500
-
+    return jsonify({"reply": reply})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)

@@ -4,11 +4,9 @@ import os
 
 app = Flask(__name__)
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
 @app.route("/")
 def home():
-    return "Kralzeka Proxy Aktif 🔥"
+    return "KralZeka Ücretsiz Proxy Aktif 🧠🔥"
 
 @app.route("/ask", methods=["POST"])
 def ask():
@@ -18,26 +16,26 @@ def ask():
     if not user_input:
         return jsonify({"error": "Prompt eksik!"}), 400
 
-    headers = {
-        "Authorization": f"Bearer {OPENAI_API_KEY}",
-        "Content-Type": "application/json"
-    }
+    # Hugging Face ücretsiz model API'si
+    model_url = "https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill"
+    
+    headers = {"Authorization": f"Bearer {os.getenv('HF_API_KEY')}"}
 
-    body = {
-        "model": "gpt-3.5-turbo",
-        "messages": [{"role": "user", "content": user_input}]
-    }
+    body = {"inputs": user_input}
 
-    response = requests.post(
-        "https://api.openai.com/v1/chat/completions",
-        headers=headers,
-        json=body
-    )
+    response = requests.post(model_url, headers=headers, json=body)
 
     if response.status_code != 200:
-        return jsonify({"error": "OpenAI isteği başarısız!", "details": response.text}), 500
+        return jsonify({
+            "error": "Hugging Face isteği başarısız!",
+            "details": response.text
+        }), 500
 
-    answer = response.json()["choices"][0]["message"]["content"]
+    try:
+        answer = response.json()[0]["generated_text"]
+    except Exception:
+        answer = "Modelden yanıt alınamadı."
+
     return jsonify({"reply": answer})
 
 
